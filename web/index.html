@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<title>Biosphere Zero — Walk</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; touch-action: none; }
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #0b0a14; color: #f3eedd; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; overscroll-behavior: none; }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  #loading {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center; flex-direction: column;
+    background: radial-gradient(circle at 50% 40%, #2a1a3a, #0b0a14);
+    z-index: 10;
+    transition: opacity 0.4s ease;
+  }
+  #loading.hidden { opacity: 0; pointer-events: none; }
+  #loading h1 { margin: 0 0 6px; font-size: 22px; letter-spacing: -0.01em; }
+  #loading h1 span { color: #ff6a3d; }
+  #loading .pct { color: #8a87a8; font-size: 13px; margin-bottom: 14px; }
+  #loading .bar { width: 220px; height: 4px; background: #1a1830; border-radius: 999px; overflow: hidden; }
+  #loading .bar > div { height: 100%; width: 0%; background: linear-gradient(90deg, #ff6a3d, #6affc8); transition: width 0.2s; }
+  #loading .hint { color: #8a87a8; font-size: 11px; margin-top: 16px; max-width: 240px; text-align: center; line-height: 1.5; }
+
+  #stick {
+    position: absolute;
+    left: 28px; bottom: 32px;
+    width: 130px; height: 130px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.18);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 5;
+  }
+  #stick .knob {
+    position: absolute; left: 50%; top: 50%;
+    width: 56px; height: 56px;
+    margin-left: -28px; margin-top: -28px;
+    border-radius: 50%;
+    background: rgba(255,106,61,0.85);
+    box-shadow: 0 0 18px rgba(255,106,61,0.5);
+    transition: background 0.15s;
+  }
+  #stick.active .knob { background: #ff6a3d; }
+
+  #buttons {
+    position: absolute;
+    right: 24px; bottom: 32px;
+    display: flex; flex-direction: column; gap: 12px;
+    z-index: 5;
+  }
+  .btn {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.18);
+    color: #f3eedd;
+    font-size: 20px;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .btn.active { background: rgba(255,106,61,0.5); border-color: #ff6a3d; }
+  .btn small { font-size: 9px; letter-spacing: 0.05em; opacity: 0.8; }
+  .btn-stack { display: flex; flex-direction: column; align-items: center; line-height: 1; gap: 2px; }
+
+  #hud {
+    position: absolute; top: 12px; left: 12px;
+    font-size: 11px; color: rgba(243,238,221,0.65);
+    pointer-events: none; z-index: 5;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  }
+  #hud .row { display: flex; gap: 8px; }
+  #hud .lbl { color: rgba(243,238,221,0.4); }
+
+  #help {
+    position: absolute; top: 12px; right: 12px;
+    font-size: 11px; color: rgba(243,238,221,0.5);
+    text-align: right; pointer-events: none; z-index: 5;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="c"></canvas>
+
+  <div id="hud">
+    <div class="row"><span class="lbl">x</span><span id="hud-x">0</span><span class="lbl">z</span><span id="hud-z">0</span></div>
+  </div>
+  <div id="help">drag screen → kijken<br/>linker stick → lopen<br/>↑ knop → vliegen omhoog</div>
+
+  <div id="stick"><div class="knob"></div></div>
+
+  <div id="buttons">
+    <div class="btn" id="btn-up"><div class="btn-stack"><span>▲</span><small>UP</small></div></div>
+    <div class="btn" id="btn-down"><div class="btn-stack"><span>▼</span><small>DN</small></div></div>
+    <div class="btn" id="btn-run"><div class="btn-stack"><span>»</span><small>RUN</small></div></div>
+  </div>
+
+  <div id="loading">
+    <h1>Biosphere <span>Zero</span></h1>
+    <div class="pct" id="pct">loading 0%</div>
+    <div class="bar"><div id="bar"></div></div>
+    <div class="hint">Big scene — eerste keer kan even duren op mobiel.</div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
+const canvas = document.getElementById("c");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a0e1a);
+scene.fog = new THREE.FogExp2(0x1a0e1a, 0.008);
+
+const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 2000);
+camera.position.set(0, 1.7, 0);
+
+const yaw = new THREE.Object3D();
+const pitch = new THREE.Object3D();
+yaw.add(pitch);
+pitch.add(camera);
+scene.add(yaw);
+yaw.position.set(0, 1.7, 0);
+
+const ambient = new THREE.HemisphereLight(0xffd6a8, 0x2a1626, 0.55);
+scene.add(ambient);
+const sun = new THREE.DirectionalLight(0xffe0b8, 0.7);
+sun.position.set(40, 60, 30);
+scene.add(sun);
+
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener("resize", resize);
+resize();
+
+const loader = new GLTFLoader();
+const bar = document.getElementById("bar");
+const pct = document.getElementById("pct");
+const loadingEl = document.getElementById("loading");
+
+loader.load(
+  "scene.glb",
+  (gltf) => {
+    scene.add(gltf.scene);
+    const box = new THREE.Box3().setFromObject(gltf.scene);
+    const center = box.getCenter(new THREE.Vector3());
+    yaw.position.set(center.x, box.min.y + 1.7, center.z);
+    loadingEl.classList.add("hidden");
+    setTimeout(() => loadingEl.remove(), 500);
+  },
+  (xhr) => {
+    if (xhr.total) {
+      const p = (xhr.loaded / xhr.total) * 100;
+      bar.style.width = p + "%";
+      pct.textContent = `loading ${p.toFixed(0)}% — ${(xhr.loaded / 1048576).toFixed(1)} / ${(xhr.total / 1048576).toFixed(1)} MB`;
+    } else {
+      const mb = (xhr.loaded / 1048576).toFixed(1);
+      pct.textContent = `loading ${mb} MB`;
+    }
+  },
+  (err) => {
+    pct.textContent = "load error: " + err.message;
+  }
+);
+
+const move = { x: 0, y: 0 };
+const stick = document.getElementById("stick");
+const stickRect = () => stick.getBoundingClientRect();
+const knob = stick.querySelector(".knob");
+let stickId = null;
+let stickCenter = { x: 0, y: 0 };
+const STICK_R = 50;
+
+function setKnob(dx, dy) {
+  const len = Math.hypot(dx, dy);
+  if (len > STICK_R) { dx = dx / len * STICK_R; dy = dy / len * STICK_R; }
+  knob.style.transform = `translate(${dx}px, ${dy}px)`;
+  move.x = dx / STICK_R;
+  move.y = dy / STICK_R;
+}
+
+stick.addEventListener("touchstart", (e) => {
+  const t = e.changedTouches[0];
+  stickId = t.identifier;
+  const r = stickRect();
+  stickCenter = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  setKnob(t.clientX - stickCenter.x, t.clientY - stickCenter.y);
+  stick.classList.add("active");
+  e.preventDefault();
+}, { passive: false });
+
+window.addEventListener("touchmove", (e) => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === stickId) {
+      setKnob(t.clientX - stickCenter.x, t.clientY - stickCenter.y);
+      e.preventDefault();
+    }
+  }
+}, { passive: false });
+
+window.addEventListener("touchend", (e) => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === stickId) {
+      stickId = null;
+      knob.style.transform = "translate(0,0)";
+      move.x = 0; move.y = 0;
+      stick.classList.remove("active");
+    }
+  }
+});
+
+const look = { active: false, id: null, lastX: 0, lastY: 0 };
+const LOOK_SENS = 0.0035;
+
+function isOnControl(target) {
+  return target.closest("#stick, #buttons");
+}
+
+window.addEventListener("touchstart", (e) => {
+  if (isOnControl(e.target)) return;
+  if (look.active) return;
+  const t = e.changedTouches[0];
+  look.active = true;
+  look.id = t.identifier;
+  look.lastX = t.clientX;
+  look.lastY = t.clientY;
+}, { passive: false });
+
+window.addEventListener("touchmove", (e) => {
+  if (!look.active) return;
+  for (const t of e.changedTouches) {
+    if (t.identifier === look.id) {
+      const dx = t.clientX - look.lastX;
+      const dy = t.clientY - look.lastY;
+      look.lastX = t.clientX;
+      look.lastY = t.clientY;
+      yaw.rotation.y -= dx * LOOK_SENS;
+      pitch.rotation.x -= dy * LOOK_SENS;
+      pitch.rotation.x = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, pitch.rotation.x));
+    }
+  }
+}, { passive: false });
+
+window.addEventListener("touchend", (e) => {
+  for (const t of e.changedTouches) {
+    if (t.identifier === look.id) {
+      look.active = false;
+      look.id = null;
+    }
+  }
+});
+
+const mouse = { down: false, lastX: 0, lastY: 0 };
+canvas.addEventListener("mousedown", (e) => { mouse.down = true; mouse.lastX = e.clientX; mouse.lastY = e.clientY; });
+window.addEventListener("mouseup", () => { mouse.down = false; });
+window.addEventListener("mousemove", (e) => {
+  if (!mouse.down) return;
+  const dx = e.clientX - mouse.lastX, dy = e.clientY - mouse.lastY;
+  mouse.lastX = e.clientX; mouse.lastY = e.clientY;
+  yaw.rotation.y -= dx * 0.003;
+  pitch.rotation.x -= dy * 0.003;
+  pitch.rotation.x = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, pitch.rotation.x));
+});
+
+const keys = {};
+window.addEventListener("keydown", (e) => { keys[e.key.toLowerCase()] = true; });
+window.addEventListener("keyup",   (e) => { keys[e.key.toLowerCase()] = false; });
+
+const btns = {};
+for (const id of ["btn-up", "btn-down", "btn-run"]) {
+  const el = document.getElementById(id);
+  btns[id] = false;
+  const press = (e) => { btns[id] = true; el.classList.add("active"); e.preventDefault(); };
+  const release = (e) => { btns[id] = false; el.classList.remove("active"); e.preventDefault(); };
+  el.addEventListener("touchstart", press, { passive: false });
+  el.addEventListener("touchend", release, { passive: false });
+  el.addEventListener("touchcancel", release, { passive: false });
+  el.addEventListener("mousedown", press);
+  el.addEventListener("mouseup", release);
+  el.addEventListener("mouseleave", release);
+}
+
+const hudX = document.getElementById("hud-x");
+const hudZ = document.getElementById("hud-z");
+const tmp = new THREE.Vector3();
+const clock = new THREE.Clock();
+
+function tick() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const sprint = btns["btn-run"] || keys["shift"];
+  const speed = (sprint ? 12 : 5) * dt;
+
+  let mx = move.x, mz = move.y;
+  if (keys["w"] || keys["arrowup"])    mz = -1;
+  if (keys["s"] || keys["arrowdown"])  mz = 1;
+  if (keys["a"] || keys["arrowleft"])  mx = -1;
+  if (keys["d"] || keys["arrowright"]) mx = 1;
+
+  const forward = new THREE.Vector3();
+  camera.getWorldDirection(forward);
+  forward.y = 0; forward.normalize();
+  const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+  yaw.position.addScaledVector(forward, -mz * speed);
+  yaw.position.addScaledVector(right, mx * speed);
+
+  if (btns["btn-up"] || keys[" "])     yaw.position.y += speed;
+  if (btns["btn-down"] || keys["c"])   yaw.position.y -= speed;
+
+  hudX.textContent = yaw.position.x.toFixed(1);
+  hudZ.textContent = yaw.position.z.toFixed(1);
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+tick();
+</script>
+</body>
+</html>
