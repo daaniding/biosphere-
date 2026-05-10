@@ -29,7 +29,11 @@ bpy.ops.export_scene.gltf(
     export_animations=False,
     export_skins=False,
     export_morph=False,
-    export_draco_mesh_compression_enable=False,
+    export_draco_mesh_compression_enable=True,
+    export_draco_mesh_compression_level=6,
+    export_draco_position_quantization=14,
+    export_draco_normal_quantization=10,
+    export_draco_texcoord_quantization=12,
     use_selection=False,
 )
 
