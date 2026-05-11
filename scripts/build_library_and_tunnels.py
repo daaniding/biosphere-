@@ -246,10 +246,13 @@ for o in bpy.data.objects:
         o.data.color = (1.0, 0.78, 0.45)
         o.data.energy = max(15, o.data.energy * 0.4)
 
+# Discover tunnels via DoorTop anchors (those always exist; TunnelFloor_ may
+# already be replaced by TunFix_tile_* from a previous run).
 tunnel_names = set()
 for o in bpy.data.objects:
-    m = re.match(r'TunnelFloor_(.+)$', o.name)
+    m = re.match(r'TunnelDoorTop_Tunnel_(.+)_-?\d+$', o.name)
     if m: tunnel_names.add(m.group(1))
+# Strip any short stub floors so we can drop our own door-to-door floor.
 for o in list(bpy.data.objects):
     if o.name.startswith('TunnelFloor_'):
         bpy.data.objects.remove(o, do_unlink=True)
