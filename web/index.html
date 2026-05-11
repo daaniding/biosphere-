@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Biosphere Zero — Walkthrough</title>
+<style>
+  html,body{margin:0;height:100%;background:#000;color:#fff;font-family:system-ui,sans-serif;overflow:hidden}
+  #info{position:fixed;top:12px;left:12px;background:rgba(0,0,0,.55);padding:10px 14px;border-radius:6px;font-size:13px;line-height:1.5;pointer-events:none;z-index:5}
+  #info b{color:#ffce5e}
+  #crosshair{position:fixed;left:50%;top:50%;width:6px;height:6px;background:#fff;border-radius:50%;transform:translate(-50%,-50%);opacity:.5;pointer-events:none;z-index:5}
+  #start{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.7);font-size:18px;cursor:pointer;z-index:10}
+  #start b{display:block;font-size:32px;margin-bottom:14px;color:#ffce5e}
+  #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000;color:#888;font-size:14px;z-index:20}
+</style>
+</head>
+<body>
+<div id="loading">scene laden…</div>
+<div id="info" style="display:none">
+  <b>Biosphere Zero</b>
+  WASD = lopen<br>
+  Shift = sprinten<br>
+  Space = omhoog · Ctrl = omlaag<br>
+  Muis = rondkijken · Esc = release
+</div>
+<div id="crosshair" style="display:none"></div>
+<div id="start" style="display:none">
+  <div style="text-align:center">
+    <b>Biosphere Zero</b>
+    klik om te starten
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {PointerLockControls} from 'three/addons/controls/PointerLockControls.js';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b0a14);
+scene.fog = new THREE.FogExp2(0x0b0a14, 0.012);
+
+const camera = new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.05, 600);
+camera.position.set(0, 1.7, 6);
+
+const renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:'high-performance'});
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+document.body.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0xb6c2cf, 0x382a2a, 0.35));
+const sun = new THREE.DirectionalLight(0xfff0d6, 1.2);
+sun.position.set(50, 80, 30);
+scene.add(sun);
+const fill = new THREE.PointLight(0xff7a4a, 0.6, 80);
+fill.position.set(0, 5, 0);
+scene.add(fill);
+
+const controls = new PointerLockControls(camera, document.body);
+scene.add(controls.getObject());
+
+const startEl = document.getElementById('start');
+const infoEl = document.getElementById('info');
+const crossEl = document.getElementById('crosshair');
+const loadEl = document.getElementById('loading');
+
+controls.addEventListener('lock', () => { startEl.style.display='none'; });
+controls.addEventListener('unlock', () => { startEl.style.display='flex'; });
+
+const keys = {};
+addEventListener('keydown', e => { keys[e.code] = true; });
+addEventListener('keyup',   e => { keys[e.code] = false; });
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+startEl.addEventListener('click', () => controls.lock());
+
+// Load GLB
+const loader = new GLTFLoader();
+loader.load('biosphere.glb',
+  gltf => {
+    scene.add(gltf.scene);
+    loadEl.style.display='none';
+    infoEl.style.display='block';
+    crossEl.style.display='block';
+    startEl.style.display='flex';
+  },
+  xhr => {
+    if (xhr.lengthComputable) {
+      loadEl.textContent = `scene laden… ${Math.round(xhr.loaded/xhr.total*100)}%`;
+    }
+  },
+  err => {
+    loadEl.textContent = 'fout bij laden van biosphere.glb';
+    console.error(err);
+  }
+);
+
+const dir = new THREE.Vector3();
+const right = new THREE.Vector3();
+let last = performance.now();
+
+function animate(){
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const dt = (now - last) / 1000;
+  last = now;
+
+  if (controls.isLocked) {
+    const speed = (keys.ShiftLeft || keys.ShiftRight ? 14 : 5) * dt;
+    camera.getWorldDirection(dir);
+    dir.y = 0; dir.normalize();
+    right.crossVectors(dir, camera.up).normalize();
+    const obj = controls.getObject();
+    if (keys.KeyW) obj.position.addScaledVector(dir,  speed);
+    if (keys.KeyS) obj.position.addScaledVector(dir, -speed);
+    if (keys.KeyD) obj.position.addScaledVector(right,  speed);
+    if (keys.KeyA) obj.position.addScaledVector(right, -speed);
+    if (keys.Space) obj.position.y += speed;
+    if (keys.ControlLeft || keys.ControlRight) obj.position.y -= speed;
+  }
+
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>

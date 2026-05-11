@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Crewmate — Animations</title>
+<style>
+  html,body{margin:0;height:100%;background:#111417;color:#fff;font-family:system-ui,sans-serif;overflow:hidden}
+  #ui{position:fixed;left:14px;top:14px;background:rgba(0,0,0,.6);padding:14px 18px;border-radius:10px;z-index:5}
+  #ui h1{margin:0 0 10px 0;font-size:18px;color:#ffce5e}
+  #ui .row{margin-top:6px;font-size:12px;color:#aaa}
+  button{display:block;margin:6px 0;width:160px;padding:10px 14px;border:none;border-radius:6px;background:#2a2f37;color:#eee;cursor:pointer;font-size:14px;text-align:left}
+  button:hover{background:#3a414b}
+  button.active{background:#c47a2c;color:#fff;font-weight:600}
+  #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000;color:#888;z-index:10}
+</style>
+</head>
+<body>
+<div id="loading">model laden…</div>
+<div id="ui" style="display:none">
+  <h1>Crewmate</h1>
+  <button data-anim="idle">Idle</button>
+  <button data-anim="walk">Walk</button>
+  <button data-anim="task">Task</button>
+  <button data-anim="kill">Kill</button>
+  <div class="row">muis sleep = roteren · scroll = zoom</div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0e1116);
+
+const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 100);
+camera.position.set(2.5, 1.6, 3.5);
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+document.body.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0xb6c2cf, 0x382a2a, 0.5));
+const key = new THREE.DirectionalLight(0xfff0d6, 1.5);
+key.position.set(5, 8, 5);
+scene.add(key);
+const rim = new THREE.DirectionalLight(0x4a8ec8, 0.6);
+rim.position.set(-4, 4, -3);
+scene.add(rim);
+
+// Floor
+const floor = new THREE.Mesh(
+  new THREE.CircleGeometry(6, 64),
+  new THREE.MeshStandardMaterial({color:0x14181d, roughness:0.8})
+);
+floor.rotation.x = -Math.PI/2;
+scene.add(floor);
+// Grid
+const grid = new THREE.GridHelper(12, 24, 0x333, 0x222);
+scene.add(grid);
+
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.target.set(0, 0.9, 0);
+orbit.update();
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+let mixer, actions = {}, current;
+
+const loader = new GLTFLoader();
+loader.load('biosphere.glb',
+  gltf => {
+    // Find only CREW_Spawn node and add to scene
+    const crew = gltf.scene.getObjectByName('CREW_Spawn');
+    if (crew) {
+      crew.position.set(0, 0, 0);
+      scene.add(crew);
+    } else {
+      scene.add(gltf.scene);
+    }
+
+    mixer = new THREE.AnimationMixer(crew || gltf.scene);
+    gltf.animations.forEach(clip => {
+      // Strip suffix if present and group by base name
+      const baseName = clip.name.replace(/^.*?\|/, '').replace(/Action$/, '');
+      actions[baseName] = mixer.clipAction(clip);
+    });
+    console.log('Animations available:', Object.keys(actions));
+
+    play('walk');
+    document.getElementById('loading').style.display='none';
+    document.getElementById('ui').style.display='block';
+  },
+  xhr => {
+    if (xhr.lengthComputable) {
+      document.getElementById('loading').textContent = `model laden… ${Math.round(xhr.loaded/xhr.total*100)}%`;
+    }
+  },
+  err => {
+    document.getElementById('loading').textContent = 'fout bij laden';
+    console.error(err);
+  }
+);
+
+function play(name) {
+  // Find action that matches
+  const match = Object.keys(actions).find(k => k.toLowerCase().includes(name.toLowerCase()));
+  if (!match) {
+    console.warn('No anim found for', name, 'available:', Object.keys(actions));
+    return;
+  }
+  if (current === actions[match]) return;
+  if (current) current.fadeOut(0.2);
+  actions[match].reset().fadeIn(0.2).play();
+  current = actions[match];
+  document.querySelectorAll('#ui button').forEach(btn => btn.classList.toggle('active', btn.dataset.anim === name));
+}
+
+document.querySelectorAll('#ui button').forEach(btn => {
+  btn.addEventListener('click', () => play(btn.dataset.anim));
+});
+
+const clock = new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+  if (mixer) mixer.update(dt);
+  orbit.update();
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
