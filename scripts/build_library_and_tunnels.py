@@ -504,4 +504,6 @@ print(f'Added {added} tunnel objects')
 
 print('EXPORTING...')
 bpy.ops.export_scene.gltf(filepath='/tmp/biosphere.glb', export_format='GLB', export_apply=True)
-print('EXPORT DONE')
+# Persist the changes back into the .blend so VS sees them in Blender's GUI.
+bpy.ops.wm.save_mainfile()
+print('EXPORT + .BLEND SAVED')
