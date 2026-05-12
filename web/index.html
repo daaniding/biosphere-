@@ -4,39 +4,62 @@
 <meta charset="utf-8">
 <title>Biosphere Zero — Walkthrough</title>
 <style>
-  html,body{margin:0;height:100%;background:#000;color:#fff;font-family:system-ui,sans-serif;overflow:hidden}
-  #info{position:fixed;top:12px;left:12px;background:rgba(0,0,0,.55);padding:10px 14px;border-radius:6px;font-size:13px;line-height:1.5;pointer-events:none;z-index:5}
-  #info b{color:#ffce5e}
-  #crosshair{position:fixed;left:50%;top:50%;width:6px;height:6px;background:#fff;border-radius:50%;transform:translate(-50%,-50%);opacity:.5;pointer-events:none;z-index:5}
-  #hint{position:fixed;left:50%;top:55%;transform:translateX(-50%);background:rgba(255,206,94,.92);color:#111;padding:6px 14px;border-radius:4px;font-weight:600;font-size:14px;letter-spacing:.5px;display:none;pointer-events:none;z-index:6}
-  #start{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.7);font-size:18px;cursor:pointer;z-index:10}
-  #start b{display:block;font-size:32px;margin-bottom:14px;color:#ffce5e}
-  #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000;color:#888;font-size:14px;z-index:20}
-  #modal{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:50;font-family:system-ui,sans-serif}
-  #modalBox{background:#1a1d22;border:1px solid #2a3038;border-radius:12px;padding:28px;min-width:420px;max-width:560px;color:#eee;box-shadow:0 20px 60px rgba(0,0,0,.6)}
-  #modalBox h2{margin:0 0 8px 0;color:#ffce5e;font-size:22px;letter-spacing:.5px}
-  #modalBox .sub{color:#888;font-size:13px;margin-bottom:18px}
-  #modalContent{margin:14px 0}
-  #modalClose{margin-top:14px;padding:8px 18px;border:none;background:#2a3038;color:#ccc;border-radius:6px;cursor:pointer;font-size:13px}
-  #modalClose:hover{background:#3a414b}
-  .game-btn{display:inline-block;padding:14px 22px;margin:4px;border:none;background:#23282f;color:#eee;border-radius:6px;cursor:pointer;font-size:15px;min-width:48px}
-  .game-btn:hover{background:#2f3640}
-  .game-btn.active{background:#c47a2c;color:#fff}
-  .game-btn.lit{background:#ffce5e;color:#222}
-  .wire{display:inline-block;width:24px;height:6px;background:#444;margin:14px 8px;vertical-align:middle;border-radius:3px;cursor:pointer}
-  .wire.connected{background:#5acd6b}
-  .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:240px;margin:14px auto}
-  .keypad button{padding:18px;font-size:20px;background:#2a2f37;color:#eee;border:none;border-radius:6px;cursor:pointer}
-  .keypad button:hover{background:#3a414b}
-  .progress{height:8px;background:#222;border-radius:4px;overflow:hidden;margin-top:14px}
-  .progress > div{height:100%;background:#5acd6b;transition:width .15s}
-  .swipe-track{position:relative;width:100%;height:80px;background:#1a1d22;border:1px solid #333;border-radius:4px;margin-top:14px;overflow:hidden}
-  .swipe-card{position:absolute;left:0;top:14px;width:60px;height:50px;background:linear-gradient(135deg,#c47a2c,#8b5722);border-radius:4px;cursor:grab;user-select:none}
-  .sabotage-banner{position:fixed;top:0;left:0;right:0;background:linear-gradient(180deg,rgba(180,30,20,.95),rgba(120,15,10,.7));color:#fff;text-align:center;padding:14px;font-weight:700;font-size:18px;letter-spacing:1px;z-index:40;display:none}
+  html,body{margin:0;height:100%;background:#000;color:#fff;font-family:'JetBrains Mono','SF Mono',Menlo,monospace;overflow:hidden}
+  #info{position:fixed;top:12px;left:12px;background:rgba(8,12,18,.7);padding:12px 16px;border-radius:4px;border:1px solid rgba(255,206,94,.2);font-size:12px;line-height:1.6;pointer-events:none;z-index:5;letter-spacing:.5px}
+  #info b{color:#ffce5e;font-size:14px}
+  #crosshair{position:fixed;left:50%;top:50%;width:8px;height:8px;border:1px solid rgba(255,255,255,.6);border-radius:50%;background:rgba(255,206,94,.3);transform:translate(-50%,-50%);pointer-events:none;z-index:5}
+  #hint{position:fixed;left:50%;top:60%;transform:translateX(-50%);background:rgba(20,28,40,.95);color:#ffce5e;padding:8px 18px;border:1px solid #ffce5e;border-radius:2px;font-weight:600;font-size:13px;letter-spacing:2px;display:none;pointer-events:none;z-index:6;text-transform:uppercase;box-shadow:0 0 24px rgba(255,206,94,.3)}
+  #start{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.85);font-size:18px;cursor:pointer;z-index:10}
+  #start b{display:block;font-size:38px;margin-bottom:14px;color:#ffce5e;letter-spacing:6px}
+  #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000;color:#666;font-size:13px;z-index:20;letter-spacing:2px}
+  /* Sci-fi modal */
+  #modal{position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(20,30,45,.55) 0%,rgba(0,0,0,.92) 80%);display:none;align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(6px)}
+  #modalBox{background:linear-gradient(180deg,rgba(15,22,30,.98),rgba(8,12,18,.98));border:1px solid rgba(255,206,94,.35);border-radius:2px;padding:24px 30px;min-width:480px;max-width:640px;color:#cdd;box-shadow:0 0 80px rgba(255,206,94,.15), inset 0 1px 0 rgba(255,255,255,.04);position:relative}
+  #modalBox::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#ffce5e 50%,transparent);opacity:.6}
+  #modalBox::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,206,94,.3) 50%,transparent)}
+  #modalTitle{margin:0 0 6px 0;color:#ffce5e;font-size:14px;letter-spacing:8px;text-transform:uppercase;font-weight:700;display:flex;align-items:center;gap:10px}
+  #modalTitle::before{content:'◆';color:#ffce5e;font-size:10px}
+  #modalSub{color:#7a8290;font-size:11px;letter-spacing:2px;margin-bottom:24px;text-transform:uppercase}
+  #modalContent{margin:18px 0;position:relative}
+  /* Scanline overlay */
+  #modalContent::after{content:'';position:absolute;inset:-4px;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,206,94,.03) 0px,rgba(255,206,94,.03) 1px,transparent 1px,transparent 3px);mix-blend-mode:overlay}
+  #modalClose{margin-top:18px;padding:8px 22px;border:1px solid #2a3038;background:transparent;color:#888;cursor:pointer;font-size:11px;letter-spacing:3px;text-transform:uppercase;font-family:inherit}
+  #modalClose:hover{border-color:#ffce5e;color:#ffce5e}
+  /* Buttons */
+  .game-btn{display:inline-block;padding:12px 22px;margin:4px;border:1px solid #2a3038;background:rgba(15,20,28,.8);color:#cdd;cursor:pointer;font-size:13px;min-width:48px;letter-spacing:2px;text-transform:uppercase;font-family:inherit;transition:all .15s}
+  .game-btn:hover{border-color:#ffce5e;color:#ffce5e;background:rgba(40,32,18,.6);box-shadow:0 0 14px rgba(255,206,94,.2)}
+  .game-btn.active{background:rgba(196,122,44,.3);border-color:#ffce5e;color:#ffce5e}
+  .game-btn.lit{background:linear-gradient(180deg,#ffce5e,#c47a2c);color:#1a1208;border-color:#ffce5e;font-weight:700;box-shadow:0 0 20px rgba(255,206,94,.4)}
+  /* Wiring */
+  .wire-cont{display:flex;justify-content:space-between;padding:18px;background:rgba(8,12,18,.5);border:1px solid #1a1f26}
+  .wire-col{display:flex;flex-direction:column;gap:10px;width:48%}
+  .wire{height:14px;background:#1a1f26;border-radius:1px;cursor:pointer;position:relative;border:1px solid rgba(255,255,255,.05);transition:all .15s;display:flex;align-items:center;padding:0 14px;color:transparent;font-size:11px;letter-spacing:2px}
+  .wire:hover{transform:scale(1.04)}
+  .wire.connected{background:linear-gradient(90deg,var(--wire-color),var(--wire-color));box-shadow:0 0 14px var(--wire-color);color:#fff}
+  .wire.selected{outline:2px solid #ffce5e;outline-offset:2px}
+  /* Keypad */
+  .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:260px;margin:18px auto;padding:14px;background:rgba(8,12,18,.6);border:1px solid #1a1f26}
+  .keypad button{padding:18px;font-size:20px;background:linear-gradient(180deg,#1a1f26,#0e1218);color:#ffce5e;border:1px solid #2a3038;cursor:pointer;font-family:inherit;font-weight:700;transition:all .1s}
+  .keypad button:hover{background:linear-gradient(180deg,#2a3038,#1a1f26);box-shadow:inset 0 0 12px rgba(255,206,94,.3)}
+  .keypad button:active{transform:scale(.95)}
+  .pin-display{font-size:32px;letter-spacing:18px;color:#ffce5e;text-align:center;font-weight:700;padding:18px;background:rgba(8,12,18,.7);border:1px solid #2a3038;margin-bottom:10px;font-family:inherit;text-shadow:0 0 16px rgba(255,206,94,.6)}
+  /* Swipe */
+  .swipe-track{position:relative;width:100%;height:100px;background:linear-gradient(180deg,#0a0e14,#14181f);border:1px solid #2a3038;margin-top:14px;overflow:hidden}
+  .swipe-track::after{content:'→ → →';position:absolute;top:42px;left:60%;color:rgba(255,206,94,.15);font-size:24px;letter-spacing:8px}
+  .swipe-card{position:absolute;left:6px;top:18px;width:70px;height:62px;background:linear-gradient(135deg,#c47a2c,#8b5722);border:1px solid #ffce5e;cursor:grab;user-select:none;display:flex;align-items:center;justify-content:center;color:#1a1208;font-weight:700;font-size:13px;letter-spacing:2px;box-shadow:0 0 18px rgba(255,206,94,.3)}
+  /* Calibrate */
+  .calib-bar{position:relative;width:100%;height:36px;background:linear-gradient(180deg,#0a0e14,#14181f);border:1px solid #2a3038;margin:18px 0;overflow:hidden}
+  .calib-zone{position:absolute;left:42%;width:16%;height:100%;background:linear-gradient(180deg,rgba(90,205,107,.4),rgba(90,205,107,.15));border-left:1px solid #5acd6b;border-right:1px solid #5acd6b}
+  .calib-needle{position:absolute;top:0;width:5px;height:100%;background:linear-gradient(180deg,#ffce5e,#c47a2c);box-shadow:0 0 12px rgba(255,206,94,.7)}
+  /* Status text & banner */
+  .status{display:inline-block;padding:3px 10px;background:#5acd6b;color:#0a0a0a;border-radius:1px;font-size:11px;margin-left:6px;font-weight:700;letter-spacing:2px}
+  .status.fail{background:#e34c3a;color:#fff}
+  .sabotage-banner{position:fixed;top:0;left:0;right:0;background:linear-gradient(180deg,rgba(180,30,20,.95),rgba(120,15,10,.7));color:#fff;text-align:center;padding:14px;font-weight:700;font-size:15px;letter-spacing:4px;text-transform:uppercase;z-index:40;display:none;border-bottom:2px solid #ff3020;box-shadow:0 0 30px rgba(255,50,30,.5)}
   .sabotage-banner.show{display:block;animation:pulse 1s infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
-  .status{display:inline-block;padding:3px 8px;background:#5acd6b;color:#0a0a0a;border-radius:4px;font-size:11px;margin-left:6px;font-weight:700}
-  .status.fail{background:#e34c3a;color:#fff}
+  /* Task header decorations */
+  .task-hud{font-size:10px;letter-spacing:3px;color:#5acd6b;margin-bottom:6px}
+  .task-hud-row{display:flex;justify-content:space-between;color:#7a8290;font-size:10px;letter-spacing:2px;margin-bottom:14px;text-transform:uppercase;padding-bottom:8px;border-bottom:1px solid rgba(255,206,94,.1)}
 </style>
 </head>
 <body>
@@ -80,24 +103,30 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {PointerLockControls} from 'three/addons/controls/PointerLockControls.js';
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0b0a14);
-scene.fog = new THREE.FogExp2(0x0b0a14, 0.025);
+scene.background = new THREE.Color(0x05060a);
+scene.fog = new THREE.FogExp2(0x05060a, 0.045);
 
-const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 160);
+const camera = new THREE.PerspectiveCamera(72, innerWidth/innerHeight, 0.1, 100);
 camera.position.set(0, 1.7, 6);
 
 const renderer = new THREE.WebGLRenderer({antialias:false, powerPreference:'high-performance'});
 renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(1); // cap to 1 for performance
+renderer.setPixelRatio(1);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.65;  // darker overall
+renderer.toneMappingExposure = 0.45;  // abandoned dark
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0xb6c2cf, 0x382a2a, 0.3));
-const sun = new THREE.DirectionalLight(0xfff0d6, 0.6);
-sun.position.set(50, 80, 30);
-scene.add(sun);
+scene.add(new THREE.HemisphereLight(0x303848, 0x0a0608, 0.18));
+// Player flashlight that follows camera
+const flashlight = new THREE.SpotLight(0xfff0d6, 6, 18, Math.PI/5, 0.5, 1.0);
+flashlight.position.set(0, 0, 0);
+const flashTarget = new THREE.Object3D();
+camera.add(flashlight);
+camera.add(flashTarget);
+flashTarget.position.set(0, 0, -1);
+flashlight.target = flashTarget;
+scene.add(camera);
 
 const controls = new PointerLockControls(camera, document.body);
 scene.add(controls.getObject());
@@ -322,9 +351,13 @@ function openVentModal(data){
 function openTaskModal(data){
   controls.unlock();
   const type = data.type || 'card_swipe';
-  const titles = {card_swipe:'Pas Activeren', wiring:'Bedrading Herstellen', sequence:'Code Invoeren', keypad:'PIN Invoeren', calibrate:'Sensor Kalibreren', align:'Antenne Uitlijnen'};
-  const subs = {card_swipe:'sleep de pas door de lezer', wiring:'verbind kabels van dezelfde kleur', sequence:'herhaal de volgorde', keypad:'voer de juiste PIN in', calibrate:'stop de balk in de groene zone', align:'klik tot uitlijning'};
-  openModal(titles[type] || 'Taak', subs[type] || '', root => {
+  const titles = {card_swipe:'AUTHENTICATIE', wiring:'WIRING REPAIR', sequence:'SEQUENCE LOCK', keypad:'KEYPAD ACCESS', calibrate:'CALIBRATION', align:'ALIGNMENT'};
+  const subs = {card_swipe:'swipe id-pass', wiring:'verbind matchende circuits', sequence:'voer pin in', keypad:'voer pin in', calibrate:'stop binnen target zone', align:'rotate naar coordinaat'};
+  openModal(titles[type] || 'TAAK', subs[type] || '', root => {
+    // Sci-fi HUD header
+    const hud = document.createElement('div'); hud.className='task-hud-row';
+    hud.innerHTML = `<span>SYS://${type.toUpperCase()}</span><span>${(data.id||'TASK_X').slice(0,18)}</span><span style="color:#5acd6b">● ONLINE</span>`;
+    root.appendChild(hud);
     if (type==='card_swipe') buildCardSwipe(root, data);
     else if (type==='wiring') buildWiring(root, data);
     else if (type==='sequence' || type==='keypad') buildKeypad(root, data);
@@ -362,33 +395,37 @@ function buildCardSwipe(root, data){
 }
 
 function buildWiring(root, data){
-  const colors = ['#e34c3a','#5acd6b','#4a8ec8','#ffce5e'];
-  const left = [...colors];
-  // Shuffle right side
-  const right = [...colors].sort(()=>Math.random()-0.5);
+  const colors = ['#ff4a3a','#5acd6b','#4aaee8','#ffce5e'];
+  const labels = ['CIRCUIT.A','CIRCUIT.B','CIRCUIT.C','CIRCUIT.D'];
+  const right = [...colors].map((c,i)=>({c,l:labels[i]}));
+  right.sort(()=>Math.random()-0.5);
   let selected = null; const connections = {};
-  const cont = document.createElement('div'); cont.style.display='flex'; cont.style.justifyContent='space-between'; cont.style.padding='14px';
-  const leftCol = document.createElement('div'); const rightCol = document.createElement('div');
-  left.forEach((c,i) => {
-    const w = document.createElement('div'); w.className='wire'; w.style.background=c; w.dataset.color=c; w.dataset.side='L'; w.dataset.idx=i;
-    w.style.display='block'; w.style.margin='10px'; w.style.width='80px';
-    w.addEventListener('click', () => { selected=w; w.style.outline='3px solid #ffce5e'; });
+  const cont = document.createElement('div'); cont.className='wire-cont';
+  const leftCol = document.createElement('div'); leftCol.className='wire-col';
+  const rightCol = document.createElement('div'); rightCol.className='wire-col';
+  colors.forEach((c,i) => {
+    const w = document.createElement('div'); w.className='wire'; w.style.setProperty('--wire-color',c); w.style.background='#1a1f26'; w.dataset.color=c; w.textContent=labels[i];
+    w.addEventListener('click', () => {
+      if (selected) selected.classList.remove('selected');
+      selected=w; w.classList.add('selected');
+    });
     leftCol.appendChild(w);
   });
-  right.forEach((c,i) => {
-    const w = document.createElement('div'); w.className='wire'; w.style.background=c; w.dataset.color=c; w.dataset.side='R'; w.dataset.idx=i;
-    w.style.display='block'; w.style.margin='10px'; w.style.width='80px';
+  right.forEach(({c,l}) => {
+    const w = document.createElement('div'); w.className='wire'; w.style.setProperty('--wire-color',c); w.style.background='#1a1f26'; w.dataset.color=c; w.textContent=l;
     w.addEventListener('click', () => {
       if (!selected) return;
       if (selected.dataset.color === c) {
         selected.classList.add('connected'); w.classList.add('connected');
-        selected.style.outline='none';
+        selected.classList.remove('selected');
         selected.style.pointerEvents='none'; w.style.pointerEvents='none';
         connections[selected.dataset.color] = true;
+        selected = null;
         if (Object.keys(connections).length === colors.length) success(data, root);
       } else {
-        selected.style.outline='3px solid #e34c3a';
-        setTimeout(()=>{ selected.style.outline='none'; selected=null; }, 400);
+        const bad = selected;
+        bad.style.outline='2px solid #ff4a3a';
+        setTimeout(()=>{ bad.style.outline=''; bad.classList.remove('selected'); selected=null; }, 380);
       }
     });
     rightCol.appendChild(w);
@@ -399,21 +436,21 @@ function buildWiring(root, data){
 
 function buildKeypad(root, data){
   const pin = String(Math.floor(1000 + Math.random()*9000));
-  const display = document.createElement('div'); display.style.fontSize='28px'; display.style.fontFamily='monospace'; display.style.color='#ffce5e'; display.style.margin='8px 0'; display.style.textAlign='center';
-  display.textContent = '____';
+  const display = document.createElement('div'); display.className='pin-display';
+  display.textContent = '----';
   root.appendChild(display);
-  const hint = document.createElement('div'); hint.textContent = `PIN: ${pin}`; hint.style.color='#888'; hint.style.fontSize='12px'; hint.style.textAlign='center'; hint.style.marginBottom='8px';
+  const hint = document.createElement('div'); hint.innerHTML = `<span style="color:#5acd6b">►</span> PIN CODE: <span style="color:#ffce5e">${pin}</span>`; hint.style.color='#7a8290'; hint.style.fontSize='11px'; hint.style.letterSpacing='3px'; hint.style.textAlign='center'; hint.style.marginBottom='8px';
   root.appendChild(hint);
   const grid = document.createElement('div'); grid.className='keypad';
   let entered='';
   const enter = (n) => {
     entered += n;
-    display.textContent = entered.padEnd(4,'_');
+    display.textContent = entered.padEnd(4,'-');
     if (entered.length === 4) {
       if (entered === pin) success(data, root);
       else {
-        display.style.color='#e34c3a';
-        setTimeout(()=>{ entered=''; display.textContent='____'; display.style.color='#ffce5e'; }, 600);
+        display.style.color='#ff4a3a';
+        setTimeout(()=>{ entered=''; display.textContent='----'; display.style.color='#ffce5e'; }, 600);
       }
     }
   };
@@ -422,18 +459,15 @@ function buildKeypad(root, data){
   }
   const empty = document.createElement('div'); grid.appendChild(empty);
   const zero = document.createElement('button'); zero.textContent='0'; zero.addEventListener('click', ()=>enter('0')); grid.appendChild(zero);
-  const clr = document.createElement('button'); clr.textContent='⌫'; clr.addEventListener('click', ()=>{ entered=''; display.textContent='____'; }); grid.appendChild(clr);
+  const clr = document.createElement('button'); clr.textContent='⌫'; clr.addEventListener('click', ()=>{ entered=''; display.textContent='----'; }); grid.appendChild(clr);
   root.appendChild(grid);
 }
 
 function buildCalibrate(root, data){
-  const bar = document.createElement('div');
-  bar.style.cssText='position:relative;width:100%;height:24px;background:#1a1d22;border-radius:4px;overflow:hidden;margin:14px 0';
-  const zone = document.createElement('div');
-  zone.style.cssText='position:absolute;left:42%;width:16%;height:100%;background:#5acd6b;opacity:.4';
+  const bar = document.createElement('div'); bar.className='calib-bar';
+  const zone = document.createElement('div'); zone.className='calib-zone';
   bar.appendChild(zone);
-  const needle = document.createElement('div');
-  needle.style.cssText='position:absolute;top:0;width:4px;height:100%;background:#ffce5e';
+  const needle = document.createElement('div'); needle.className='calib-needle';
   bar.appendChild(needle);
   root.appendChild(bar);
   let pos=0, dir=1;
@@ -441,16 +475,18 @@ function buildCalibrate(root, data){
     pos += dir*1.5; if (pos > 100) {pos=100; dir=-1;} if (pos<0) {pos=0; dir=1;}
     needle.style.left = pos+'%';
   }, 16);
-  const stopBtn = document.createElement('button'); stopBtn.className='game-btn lit'; stopBtn.textContent='STOP';
+  const btnRow = document.createElement('div'); btnRow.style.textAlign='center';
+  const stopBtn = document.createElement('button'); stopBtn.className='game-btn lit'; stopBtn.textContent='LOCK';
   stopBtn.addEventListener('click', () => {
     clearInterval(iv);
     if (pos >= 42 && pos <= 58) success(data, root);
     else {
-      const m = document.createElement('div'); m.textContent='Buiten zone — probeer opnieuw'; m.style.color='#e34c3a'; m.style.marginTop='6px';
+      const m = document.createElement('div'); m.innerHTML='<span style="color:#ff4a3a">✕ OUT OF RANGE</span>'; m.style.color='#ff4a3a'; m.style.marginTop='10px'; m.style.fontSize='11px'; m.style.letterSpacing='2px';
       root.appendChild(m);
     }
   });
-  root.appendChild(stopBtn);
+  btnRow.appendChild(stopBtn);
+  root.appendChild(btnRow);
 }
 
 function buildAlign(root, data){
