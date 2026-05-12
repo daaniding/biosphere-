@@ -8,25 +8,62 @@
   #info{position:fixed;top:12px;left:12px;background:rgba(0,0,0,.55);padding:10px 14px;border-radius:6px;font-size:13px;line-height:1.5;pointer-events:none;z-index:5}
   #info b{color:#ffce5e}
   #crosshair{position:fixed;left:50%;top:50%;width:6px;height:6px;background:#fff;border-radius:50%;transform:translate(-50%,-50%);opacity:.5;pointer-events:none;z-index:5}
+  #hint{position:fixed;left:50%;top:55%;transform:translateX(-50%);background:rgba(255,206,94,.92);color:#111;padding:6px 14px;border-radius:4px;font-weight:600;font-size:14px;letter-spacing:.5px;display:none;pointer-events:none;z-index:6}
   #start{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.7);font-size:18px;cursor:pointer;z-index:10}
   #start b{display:block;font-size:32px;margin-bottom:14px;color:#ffce5e}
   #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000;color:#888;font-size:14px;z-index:20}
+  #modal{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:50;font-family:system-ui,sans-serif}
+  #modalBox{background:#1a1d22;border:1px solid #2a3038;border-radius:12px;padding:28px;min-width:420px;max-width:560px;color:#eee;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  #modalBox h2{margin:0 0 8px 0;color:#ffce5e;font-size:22px;letter-spacing:.5px}
+  #modalBox .sub{color:#888;font-size:13px;margin-bottom:18px}
+  #modalContent{margin:14px 0}
+  #modalClose{margin-top:14px;padding:8px 18px;border:none;background:#2a3038;color:#ccc;border-radius:6px;cursor:pointer;font-size:13px}
+  #modalClose:hover{background:#3a414b}
+  .game-btn{display:inline-block;padding:14px 22px;margin:4px;border:none;background:#23282f;color:#eee;border-radius:6px;cursor:pointer;font-size:15px;min-width:48px}
+  .game-btn:hover{background:#2f3640}
+  .game-btn.active{background:#c47a2c;color:#fff}
+  .game-btn.lit{background:#ffce5e;color:#222}
+  .wire{display:inline-block;width:24px;height:6px;background:#444;margin:14px 8px;vertical-align:middle;border-radius:3px;cursor:pointer}
+  .wire.connected{background:#5acd6b}
+  .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:240px;margin:14px auto}
+  .keypad button{padding:18px;font-size:20px;background:#2a2f37;color:#eee;border:none;border-radius:6px;cursor:pointer}
+  .keypad button:hover{background:#3a414b}
+  .progress{height:8px;background:#222;border-radius:4px;overflow:hidden;margin-top:14px}
+  .progress > div{height:100%;background:#5acd6b;transition:width .15s}
+  .swipe-track{position:relative;width:100%;height:80px;background:#1a1d22;border:1px solid #333;border-radius:4px;margin-top:14px;overflow:hidden}
+  .swipe-card{position:absolute;left:0;top:14px;width:60px;height:50px;background:linear-gradient(135deg,#c47a2c,#8b5722);border-radius:4px;cursor:grab;user-select:none}
+  .sabotage-banner{position:fixed;top:0;left:0;right:0;background:linear-gradient(180deg,rgba(180,30,20,.95),rgba(120,15,10,.7));color:#fff;text-align:center;padding:14px;font-weight:700;font-size:18px;letter-spacing:1px;z-index:40;display:none}
+  .sabotage-banner.show{display:block;animation:pulse 1s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
+  .status{display:inline-block;padding:3px 8px;background:#5acd6b;color:#0a0a0a;border-radius:4px;font-size:11px;margin-left:6px;font-weight:700}
+  .status.fail{background:#e34c3a;color:#fff}
 </style>
 </head>
 <body>
 <div id="loading">scene laden…</div>
 <div id="info" style="display:none">
   <b>Biosphere Zero</b>
-  WASD = lopen<br>
-  Shift = sprinten<br>
-  Space = omhoog · Ctrl = omlaag<br>
-  Muis = rondkijken · Esc = release
+  WASD = lopen · Shift = sprint<br>
+  Space/Ctrl = omhoog/omlaag<br>
+  E / klik = interact · Esc = release
 </div>
 <div id="crosshair" style="display:none"></div>
+<div id="hint"></div>
 <div id="start" style="display:none">
   <div style="text-align:center">
     <b>Biosphere Zero</b>
     klik om te starten
+  </div>
+</div>
+
+<div id="sabBanner" class="sabotage-banner"></div>
+
+<div id="modal">
+  <div id="modalBox">
+    <h2 id="modalTitle">Task</h2>
+    <div class="sub" id="modalSub">…</div>
+    <div id="modalContent"></div>
+    <button id="modalClose">Sluiten</button>
   </div>
 </div>
 
@@ -46,11 +83,11 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0b0a14);
 scene.fog = new THREE.FogExp2(0x0b0a14, 0.012);
 
-const camera = new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.05, 600);
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.05, 600);
 camera.position.set(0, 1.7, 6);
 
 const renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:'high-performance'});
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -61,9 +98,6 @@ scene.add(new THREE.HemisphereLight(0xb6c2cf, 0x382a2a, 0.35));
 const sun = new THREE.DirectionalLight(0xfff0d6, 1.2);
 sun.position.set(50, 80, 30);
 scene.add(sun);
-const fill = new THREE.PointLight(0xff7a4a, 0.6, 80);
-fill.position.set(0, 5, 0);
-scene.add(fill);
 
 const controls = new PointerLockControls(camera, document.body);
 scene.add(controls.getObject());
@@ -72,27 +106,63 @@ const startEl = document.getElementById('start');
 const infoEl = document.getElementById('info');
 const crossEl = document.getElementById('crosshair');
 const loadEl = document.getElementById('loading');
+const hintEl = document.getElementById('hint');
+const modal = document.getElementById('modal');
+const modalTitle = document.getElementById('modalTitle');
+const modalSub = document.getElementById('modalSub');
+const modalContent = document.getElementById('modalContent');
+const modalClose = document.getElementById('modalClose');
+const sabBanner = document.getElementById('sabBanner');
+
+modalClose.addEventListener('click', () => closeModal());
+
+function openModal(title, sub, contentBuilder){
+  modalTitle.textContent = title;
+  modalSub.textContent = sub;
+  modalContent.innerHTML = '';
+  contentBuilder(modalContent);
+  modal.style.display = 'flex';
+}
+function closeModal(){
+  modal.style.display = 'none';
+  if (controls && !controls.isLocked) {
+    setTimeout(() => controls.lock().catch(()=>{}), 50);
+  }
+}
 
 controls.addEventListener('lock', () => { startEl.style.display='none'; });
-controls.addEventListener('unlock', () => { startEl.style.display='flex'; });
+controls.addEventListener('unlock', () => {
+  if (modal.style.display !== 'flex') startEl.style.display='flex';
+});
 
 const keys = {};
-addEventListener('keydown', e => { keys[e.code] = true; });
-addEventListener('keyup',   e => { keys[e.code] = false; });
-
+addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'KeyE' && controls.isLocked && currentInteractable) {
+    handleInteract(currentInteractable);
+  }
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('resize', () => {
   camera.aspect = innerWidth/innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
-
 startEl.addEventListener('click', () => controls.lock());
 
-// Load GLB
+const interactables = []; // {obj, kind, data}
+const doors = []; // {id, panelL, panelR, openOffsetL, openOffsetR, button, isOpen, lerp}
+const lightObjects = [];
+const completedTasks = new Set();
+let activeSabotage = null;
+
 const loader = new GLTFLoader();
 loader.load('biosphere.glb',
   gltf => {
+    const crew = gltf.scene.getObjectByName('CREW_Spawn');
+    if (crew && crew.parent) crew.parent.remove(crew);
     scene.add(gltf.scene);
+    indexInteractables(gltf.scene);
     loadEl.style.display='none';
     infoEl.style.display='block';
     crossEl.style.display='block';
@@ -108,6 +178,335 @@ loader.load('biosphere.glb',
     console.error(err);
   }
 );
+
+function indexInteractables(root){
+  const doorMap = {};
+  root.traverse(obj => {
+    if (!obj.isMesh) return;
+    const n = obj.name || '';
+    const ud = obj.userData || {};
+    // Task panels — Screen meshes (interactable)
+    if (n.includes('_Screen') && n.startsWith('TASK_')) {
+      interactables.push({obj, kind:'task', data:{type: ud.task_type || 'card_swipe', id:n}});
+    }
+    // Vents — Base meshes
+    if (n.includes('_Base') && n.startsWith('VENT_')) {
+      interactables.push({obj, kind:'vent', data:{id: ud.vent_id, link: ud.vent_link, dome: ud.vent_dome}});
+    }
+    // Doors — Button
+    if (n.startsWith('DOOR_') && n.endsWith('_Button')) {
+      interactables.push({obj, kind:'door', data:{id: ud.door_id || n.replace('_Button','')}});
+    }
+    // Door panels (for animating)
+    if (n.startsWith('DOOR_') && (n.endsWith('_PanelL') || n.endsWith('_PanelR'))) {
+      const did = ud.door_id || n.split('_').slice(0,-1).join('_');
+      if (!doorMap[did]) doorMap[did] = {id:did, panelL:null, panelR:null, panelL_origPos:null, panelR_origPos:null, panelL_offset:[-0.7,0,0], panelR_offset:[0.7,0,0], isOpen:false, lerp:0};
+      const isL = n.endsWith('_PanelL');
+      if (isL) {
+        doorMap[did].panelL = obj;
+        doorMap[did].panelL_origPos = obj.position.clone();
+        if (ud.door_open_offset) doorMap[did].panelL_offset = ud.door_open_offset;
+      } else {
+        doorMap[did].panelR = obj;
+        doorMap[did].panelR_origPos = obj.position.clone();
+        if (ud.door_open_offset) doorMap[did].panelR_offset = ud.door_open_offset;
+      }
+    }
+    // Sabotage terminals
+    if (n.startsWith('SAB_') && n.endsWith('_Base')) {
+      interactables.push({obj, kind:'sabotage', data:{type: ud.sabotage_type || 'unknown'}});
+    }
+    // Lights collection (for electrical sabotage)
+    if (obj.isLight || obj.material?.emissive) {
+      lightObjects.push(obj);
+    }
+  });
+  for (const did of Object.keys(doorMap)) doors.push(doorMap[did]);
+  console.log(`interactables: ${interactables.length}, doors: ${doors.length}`);
+}
+
+const raycaster = new THREE.Raycaster();
+let currentInteractable = null;
+function pickInteractable(){
+  const origin = camera.position.clone();
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  raycaster.set(origin, dir);
+  raycaster.far = 3.5;
+  // Cast against just the interactable meshes
+  const meshes = interactables.map(i => i.obj);
+  const hits = raycaster.intersectObjects(meshes, false);
+  if (hits.length > 0) {
+    const obj = hits[0].object;
+    const inter = interactables.find(i => i.obj === obj);
+    return inter || null;
+  }
+  return null;
+}
+
+function showHint(text){
+  hintEl.textContent = text;
+  hintEl.style.display = 'block';
+}
+function hideHint(){ hintEl.style.display = 'none'; }
+
+document.addEventListener('mousedown', e => {
+  if (!controls.isLocked) return;
+  if (e.button === 0 && currentInteractable) {
+    handleInteract(currentInteractable);
+  }
+});
+
+function handleInteract(inter){
+  if (inter.kind === 'door') {
+    toggleDoor(inter.data.id);
+  } else if (inter.kind === 'vent') {
+    openVentModal(inter.data);
+  } else if (inter.kind === 'task') {
+    openTaskModal(inter.data);
+  } else if (inter.kind === 'sabotage') {
+    triggerSabotage(inter.data.type);
+  }
+}
+
+function toggleDoor(id){
+  const d = doors.find(x => x.id === id);
+  if (!d) return;
+  d.isOpen = !d.isOpen;
+}
+
+function openVentModal(data){
+  controls.unlock();
+  openModal('VENTILATIESCHACHT', `Locatie: ${data.dome || 'onbekend'} — link: ${data.link || '?'}`, root => {
+    const p = document.createElement('p');
+    p.textContent = 'Springen naar gekoppelde ventilatieopening:';
+    root.appendChild(p);
+    const btn = document.createElement('button');
+    btn.className = 'game-btn lit';
+    btn.textContent = `→ ${data.link}`;
+    btn.addEventListener('click', () => {
+      // Teleport player to linked vent
+      const target = interactables.find(i => i.kind==='vent' && i.data.id === data.link);
+      if (target) {
+        const w = new THREE.Vector3();
+        target.obj.getWorldPosition(w);
+        const obj = controls.getObject();
+        obj.position.set(w.x, 1.7, w.y === undefined ? obj.position.z : w.z);
+        // actually three uses Y-up; vents in Blender at z, but exported yup => world Y = blender z
+        obj.position.set(w.x, 1.7, w.z); // ensure
+      }
+      closeModal();
+    });
+    root.appendChild(btn);
+  });
+}
+
+// ====== TASK MINI-GAMES ======
+function openTaskModal(data){
+  controls.unlock();
+  const type = data.type || 'card_swipe';
+  const titles = {card_swipe:'Pas Activeren', wiring:'Bedrading Herstellen', sequence:'Code Invoeren', keypad:'PIN Invoeren', calibrate:'Sensor Kalibreren', align:'Antenne Uitlijnen'};
+  const subs = {card_swipe:'sleep de pas door de lezer', wiring:'verbind kabels van dezelfde kleur', sequence:'herhaal de volgorde', keypad:'voer de juiste PIN in', calibrate:'stop de balk in de groene zone', align:'klik tot uitlijning'};
+  openModal(titles[type] || 'Taak', subs[type] || '', root => {
+    if (type==='card_swipe') buildCardSwipe(root, data);
+    else if (type==='wiring') buildWiring(root, data);
+    else if (type==='sequence' || type==='keypad') buildKeypad(root, data);
+    else if (type==='calibrate') buildCalibrate(root, data);
+    else if (type==='align') buildAlign(root, data);
+    else buildCardSwipe(root, data);
+  });
+}
+
+function buildCardSwipe(root, data){
+  const desc = document.createElement('div'); desc.textContent='Sleep de pas van links naar rechts op natuurlijke snelheid.';
+  desc.style.color='#aaa'; desc.style.fontSize='13px'; root.appendChild(desc);
+  const track = document.createElement('div'); track.className='swipe-track'; root.appendChild(track);
+  const card = document.createElement('div'); card.className='swipe-card'; card.textContent='ID'; card.style.textAlign='center'; card.style.lineHeight='50px'; card.style.color='#000'; card.style.fontWeight='700';
+  track.appendChild(card);
+  let dragging=false, startX=0, startMs=0, lastX=0;
+  card.addEventListener('mousedown', e => { dragging=true; startX=e.clientX-card.offsetLeft; startMs=Date.now(); });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const x = Math.max(0, Math.min(track.clientWidth-60, e.clientX-startX));
+    card.style.left = x+'px'; lastX=x;
+  });
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return; dragging=false;
+    const dx = lastX; const dt = (Date.now()-startMs)/1000;
+    const speed = dx/dt;
+    if (lastX > track.clientWidth - 80 && speed > 80 && speed < 400) {
+      success(data, root);
+    } else {
+      const msg = document.createElement('div'); msg.textContent= speed > 400 ? 'Te snel — probeer opnieuw' : (speed < 80 ? 'Te langzaam' : 'Sleep helemaal naar rechts'); msg.style.color='#e34c3a'; msg.style.marginTop='6px';
+      root.appendChild(msg); card.style.left='0';
+      setTimeout(()=>msg.remove(), 1500);
+    }
+  });
+}
+
+function buildWiring(root, data){
+  const colors = ['#e34c3a','#5acd6b','#4a8ec8','#ffce5e'];
+  const left = [...colors];
+  // Shuffle right side
+  const right = [...colors].sort(()=>Math.random()-0.5);
+  let selected = null; const connections = {};
+  const cont = document.createElement('div'); cont.style.display='flex'; cont.style.justifyContent='space-between'; cont.style.padding='14px';
+  const leftCol = document.createElement('div'); const rightCol = document.createElement('div');
+  left.forEach((c,i) => {
+    const w = document.createElement('div'); w.className='wire'; w.style.background=c; w.dataset.color=c; w.dataset.side='L'; w.dataset.idx=i;
+    w.style.display='block'; w.style.margin='10px'; w.style.width='80px';
+    w.addEventListener('click', () => { selected=w; w.style.outline='3px solid #ffce5e'; });
+    leftCol.appendChild(w);
+  });
+  right.forEach((c,i) => {
+    const w = document.createElement('div'); w.className='wire'; w.style.background=c; w.dataset.color=c; w.dataset.side='R'; w.dataset.idx=i;
+    w.style.display='block'; w.style.margin='10px'; w.style.width='80px';
+    w.addEventListener('click', () => {
+      if (!selected) return;
+      if (selected.dataset.color === c) {
+        selected.classList.add('connected'); w.classList.add('connected');
+        selected.style.outline='none';
+        selected.style.pointerEvents='none'; w.style.pointerEvents='none';
+        connections[selected.dataset.color] = true;
+        if (Object.keys(connections).length === colors.length) success(data, root);
+      } else {
+        selected.style.outline='3px solid #e34c3a';
+        setTimeout(()=>{ selected.style.outline='none'; selected=null; }, 400);
+      }
+    });
+    rightCol.appendChild(w);
+  });
+  cont.appendChild(leftCol); cont.appendChild(rightCol);
+  root.appendChild(cont);
+}
+
+function buildKeypad(root, data){
+  const pin = String(Math.floor(1000 + Math.random()*9000));
+  const display = document.createElement('div'); display.style.fontSize='28px'; display.style.fontFamily='monospace'; display.style.color='#ffce5e'; display.style.margin='8px 0'; display.style.textAlign='center';
+  display.textContent = '____';
+  root.appendChild(display);
+  const hint = document.createElement('div'); hint.textContent = `PIN: ${pin}`; hint.style.color='#888'; hint.style.fontSize='12px'; hint.style.textAlign='center'; hint.style.marginBottom='8px';
+  root.appendChild(hint);
+  const grid = document.createElement('div'); grid.className='keypad';
+  let entered='';
+  const enter = (n) => {
+    entered += n;
+    display.textContent = entered.padEnd(4,'_');
+    if (entered.length === 4) {
+      if (entered === pin) success(data, root);
+      else {
+        display.style.color='#e34c3a';
+        setTimeout(()=>{ entered=''; display.textContent='____'; display.style.color='#ffce5e'; }, 600);
+      }
+    }
+  };
+  for (let i=1; i<=9; i++) {
+    const b = document.createElement('button'); b.textContent=i; b.addEventListener('click', ()=>enter(String(i))); grid.appendChild(b);
+  }
+  const empty = document.createElement('div'); grid.appendChild(empty);
+  const zero = document.createElement('button'); zero.textContent='0'; zero.addEventListener('click', ()=>enter('0')); grid.appendChild(zero);
+  const clr = document.createElement('button'); clr.textContent='⌫'; clr.addEventListener('click', ()=>{ entered=''; display.textContent='____'; }); grid.appendChild(clr);
+  root.appendChild(grid);
+}
+
+function buildCalibrate(root, data){
+  const bar = document.createElement('div');
+  bar.style.cssText='position:relative;width:100%;height:24px;background:#1a1d22;border-radius:4px;overflow:hidden;margin:14px 0';
+  const zone = document.createElement('div');
+  zone.style.cssText='position:absolute;left:42%;width:16%;height:100%;background:#5acd6b;opacity:.4';
+  bar.appendChild(zone);
+  const needle = document.createElement('div');
+  needle.style.cssText='position:absolute;top:0;width:4px;height:100%;background:#ffce5e';
+  bar.appendChild(needle);
+  root.appendChild(bar);
+  let pos=0, dir=1;
+  const iv = setInterval(() => {
+    pos += dir*1.5; if (pos > 100) {pos=100; dir=-1;} if (pos<0) {pos=0; dir=1;}
+    needle.style.left = pos+'%';
+  }, 16);
+  const stopBtn = document.createElement('button'); stopBtn.className='game-btn lit'; stopBtn.textContent='STOP';
+  stopBtn.addEventListener('click', () => {
+    clearInterval(iv);
+    if (pos >= 42 && pos <= 58) success(data, root);
+    else {
+      const m = document.createElement('div'); m.textContent='Buiten zone — probeer opnieuw'; m.style.color='#e34c3a'; m.style.marginTop='6px';
+      root.appendChild(m);
+    }
+  });
+  root.appendChild(stopBtn);
+}
+
+function buildAlign(root, data){
+  const target = Math.floor(Math.random()*360);
+  const display = document.createElement('div'); display.style.cssText='font-family:monospace;font-size:22px;color:#ffce5e;text-align:center;margin:14px 0';
+  let current = 0;
+  const update = () => { display.textContent = `Doel: ${target}° · Huidig: ${current}°`; };
+  update();
+  root.appendChild(display);
+  const btnRow = document.createElement('div'); btnRow.style.textAlign='center';
+  const minus = document.createElement('button'); minus.className='game-btn'; minus.textContent='◀ -10°';
+  const plus = document.createElement('button'); plus.className='game-btn'; plus.textContent='+10° ▶';
+  const lock = document.createElement('button'); lock.className='game-btn lit'; lock.textContent='LOCK';
+  minus.onclick = () => { current = (current-10+360)%360; update(); };
+  plus.onclick = () => { current = (current+10)%360; update(); };
+  lock.onclick = () => {
+    if (Math.abs(((current-target+540)%360)-180) > 175) success(data, root);
+    else {
+      const m = document.createElement('div'); m.textContent='Niet uitgelijnd'; m.style.color='#e34c3a'; m.style.marginTop='6px'; root.appendChild(m);
+      setTimeout(()=>m.remove(), 1500);
+    }
+  };
+  btnRow.appendChild(minus); btnRow.appendChild(lock); btnRow.appendChild(plus);
+  root.appendChild(btnRow);
+}
+
+function success(data, root){
+  completedTasks.add(data.id);
+  root.innerHTML='';
+  const msg = document.createElement('div');
+  msg.innerHTML = '<div style="font-size:48px;text-align:center;color:#5acd6b">✓</div><div style="text-align:center;color:#5acd6b;font-size:18px">Taak voltooid</div>';
+  root.appendChild(msg);
+  setTimeout(closeModal, 900);
+}
+
+// ====== SABOTAGE ======
+function triggerSabotage(type){
+  if (type === 'reactor_meltdown') {
+    activeSabotage = 'reactor';
+    sabBanner.textContent = '⚠ REACTOR MELTDOWN — fix bij reactor binnen 60s';
+    sabBanner.classList.add('show');
+    setTimeout(() => clearSabotage(), 60000);
+  } else if (type === 'electrical_off') {
+    activeSabotage = 'electrical';
+    sabBanner.textContent = '⚠ ELEKTRA UITGEVALLEN — fix bij elektrabord';
+    sabBanner.classList.add('show');
+    // dim all lights / emissives
+    lightObjects.forEach(o => {
+      if (o.isLight) o.userData._origEnergy = o.intensity, o.intensity = o.intensity * 0.1;
+      if (o.material && o.material.emissiveIntensity !== undefined) {
+        o.material.userData = o.material.userData || {};
+        o.material.userData._origEmissive = o.material.emissiveIntensity;
+        o.material.emissiveIntensity = o.material.emissiveIntensity * 0.1;
+      }
+    });
+    setTimeout(() => clearSabotage(), 60000);
+  } else if (type === 'oxygen_off') {
+    activeSabotage = 'o2';
+    sabBanner.textContent = '⚠ ZUURSTOF LEEG — fix bij water-zuivering';
+    sabBanner.classList.add('show');
+    setTimeout(() => clearSabotage(), 60000);
+  }
+}
+function clearSabotage(){
+  activeSabotage = null;
+  sabBanner.classList.remove('show');
+  lightObjects.forEach(o => {
+    if (o.isLight && o.userData._origEnergy) o.intensity = o.userData._origEnergy;
+    if (o.material && o.material.userData?._origEmissive !== undefined) {
+      o.material.emissiveIntensity = o.material.userData._origEmissive;
+    }
+  });
+}
 
 const dir = new THREE.Vector3();
 const right = new THREE.Vector3();
@@ -131,6 +530,32 @@ function animate(){
     if (keys.KeyA) obj.position.addScaledVector(right, -speed);
     if (keys.Space) obj.position.y += speed;
     if (keys.ControlLeft || keys.ControlRight) obj.position.y -= speed;
+
+    // Pick interactable
+    const inter = pickInteractable();
+    if (inter !== currentInteractable) {
+      currentInteractable = inter;
+      if (inter) {
+        const kindNames = {door:'Deur', vent:'Vent', task:'Taak', sabotage:'Sabotage'};
+        showHint(`[E] ${kindNames[inter.kind] || inter.kind}`);
+      } else hideHint();
+    }
+  }
+
+  // Animate doors
+  for (const d of doors) {
+    const target = d.isOpen ? 1 : 0;
+    d.lerp += (target - d.lerp) * Math.min(1, dt*5);
+    if (d.panelL && d.panelL_origPos) {
+      const o = Array.isArray(d.panelL_offset) ? d.panelL_offset : [-0.7, 0, 0];
+      d.panelL.position.x = d.panelL_origPos.x + o[0]*d.lerp;
+      d.panelL.position.z = d.panelL_origPos.z + o[1]*d.lerp;
+    }
+    if (d.panelR && d.panelR_origPos) {
+      const o = Array.isArray(d.panelR_offset) ? d.panelR_offset : [0.7, 0, 0];
+      d.panelR.position.x = d.panelR_origPos.x + o[0]*d.lerp;
+      d.panelR.position.z = d.panelR_origPos.z + o[1]*d.lerp;
+    }
   }
 
   renderer.render(scene, camera);
