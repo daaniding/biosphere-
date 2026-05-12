@@ -81,21 +81,21 @@ import {PointerLockControls} from 'three/addons/controls/PointerLockControls.js'
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0b0a14);
-scene.fog = new THREE.FogExp2(0x0b0a14, 0.012);
+scene.fog = new THREE.FogExp2(0x0b0a14, 0.025);
 
-const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.05, 600);
+const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 160);
 camera.position.set(0, 1.7, 6);
 
-const renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:'high-performance'});
+const renderer = new THREE.WebGLRenderer({antialias:false, powerPreference:'high-performance'});
 renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(1); // cap to 1 for performance
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2;
+renderer.toneMappingExposure = 0.65;  // darker overall
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0xb6c2cf, 0x382a2a, 0.35));
-const sun = new THREE.DirectionalLight(0xfff0d6, 1.2);
+scene.add(new THREE.HemisphereLight(0xb6c2cf, 0x382a2a, 0.3));
+const sun = new THREE.DirectionalLight(0xfff0d6, 0.6);
 sun.position.set(50, 80, 30);
 scene.add(sun);
 
@@ -161,6 +161,23 @@ loader.load('biosphere.glb',
   gltf => {
     const crew = gltf.scene.getObjectByName('CREW_Spawn');
     if (crew && crew.parent) crew.parent.remove(crew);
+    // Clamp emissive intensities (anti-whiteout) + disable shadow casts on most stuff
+    gltf.scene.traverse(o => {
+      if (o.isMesh && o.material) {
+        const ms = Array.isArray(o.material) ? o.material : [o.material];
+        ms.forEach(m => {
+          if (m.emissiveIntensity !== undefined && m.emissiveIntensity > 1) {
+            m.emissiveIntensity = Math.min(m.emissiveIntensity, 1.0);
+          }
+        });
+        o.castShadow = false; o.receiveShadow = false;
+      }
+      if (o.isLight) {
+        // Dim very strong lights from Blender export
+        if (o.intensity > 50) o.intensity = Math.min(o.intensity * 0.05, 30);
+        o.castShadow = false;
+      }
+    });
     scene.add(gltf.scene);
     indexInteractables(gltf.scene);
     loadEl.style.display='none';
@@ -511,6 +528,7 @@ function clearSabotage(){
 const dir = new THREE.Vector3();
 const right = new THREE.Vector3();
 let last = performance.now();
+let rayTick = 0;
 
 function animate(){
   requestAnimationFrame(animate);
@@ -531,8 +549,9 @@ function animate(){
     if (keys.Space) obj.position.y += speed;
     if (keys.ControlLeft || keys.ControlRight) obj.position.y -= speed;
 
-    // Pick interactable
-    const inter = pickInteractable();
+    // Pick interactable (throttled — every 6 frames)
+    rayTick = (rayTick + 1) % 6;
+    const inter = (rayTick === 0) ? pickInteractable() : currentInteractable;
     if (inter !== currentInteractable) {
       currentInteractable = inter;
       if (inter) {
