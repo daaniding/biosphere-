@@ -111,21 +111,18 @@ camera.position.set(0, 1.7, 6);
 
 const renderer = new THREE.WebGLRenderer({antialias:false, powerPreference:'high-performance'});
 renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(1);
+renderer.setPixelRatio(0.7);   // render at 70% then upscale -> big perf win
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.45;  // abandoned dark
+renderer.toneMappingExposure = 0.45;
+renderer.shadowMap.enabled = false;
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0x303848, 0x0a0608, 0.18));
-// Player flashlight that follows camera
-const flashlight = new THREE.SpotLight(0xfff0d6, 6, 18, Math.PI/5, 0.5, 1.0);
-flashlight.position.set(0, 0, 0);
-const flashTarget = new THREE.Object3D();
+scene.add(new THREE.HemisphereLight(0x303848, 0x0a0608, 0.25));
+// Camera-mounted PointLight (cheaper than SpotLight, no shadow calc)
+const flashlight = new THREE.PointLight(0xfff0d6, 4, 14, 1.2);
+flashlight.castShadow = false;
 camera.add(flashlight);
-camera.add(flashTarget);
-flashTarget.position.set(0, 0, -1);
-flashlight.target = flashTarget;
 scene.add(camera);
 
 const controls = new PointerLockControls(camera, document.body);
@@ -209,6 +206,10 @@ loader.load('biosphere.glb',
     });
     scene.add(gltf.scene);
     indexInteractables(gltf.scene);
+    // Build flat list of meshes for distance culling
+    sceneMeshes.length = 0;
+    gltf.scene.traverse(o => { if (o.isMesh) sceneMeshes.push(o); });
+    console.log('total meshes in scene:', sceneMeshes.length);
     loadEl.style.display='none';
     infoEl.style.display='block';
     crossEl.style.display='block';
@@ -565,6 +566,10 @@ const dir = new THREE.Vector3();
 const right = new THREE.Vector3();
 let last = performance.now();
 let rayTick = 0;
+const sceneMeshes = [];
+let cullTick = 0;
+const CULL_DIST_SQ = 35*35;     // hide anything more than 35m away from camera
+const _meshWorld = new THREE.Vector3();
 
 function animate(){
   requestAnimationFrame(animate);
@@ -595,6 +600,22 @@ function animate(){
         showHint(`[E] ${kindNames[inter.kind] || inter.kind}`);
       } else hideHint();
     }
+  }
+
+  // Distance cull — process a chunk of meshes per frame
+  if (sceneMeshes.length) {
+    const camPos = camera.position;
+    const chunkSize = 200;
+    const start = cullTick * chunkSize;
+    const end = Math.min(start + chunkSize, sceneMeshes.length);
+    for (let i = start; i < end; i++) {
+      const m = sceneMeshes[i];
+      m.getWorldPosition(_meshWorld);
+      const dx = _meshWorld.x - camPos.x;
+      const dz = _meshWorld.z - camPos.z;
+      m.visible = (dx*dx + dz*dz) < CULL_DIST_SQ;
+    }
+    cullTick = (cullTick + 1) % Math.ceil(sceneMeshes.length / chunkSize);
   }
 
   // Animate doors
