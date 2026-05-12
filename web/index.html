@@ -181,28 +181,32 @@ loader.load('biosphere.glb',
   gltf => {
     const crew = gltf.scene.getObjectByName('CREW_Spawn');
     if (crew && crew.parent) crew.parent.remove(crew);
-    // ULTRA-LITE MODE: convert all PBR materials to unlit MeshBasicMaterial (no lighting math),
-    // remove all Blender lights, no shadow setup
-    const matCache = new Map();
+    // ULTRA-LITE MODE: collect lights & meshes first (don't mutate during traverse)
+    const lights = [];
+    const meshes = [];
     gltf.scene.traverse(o => {
-      if (o.isLight) {
-        if (o.parent) o.parent.remove(o);
-        return;
-      }
-      if (o.isMesh && o.material) {
+      if (o.isLight) lights.push(o);
+      else if (o.isMesh) meshes.push(o);
+    });
+    // Remove lights after traverse
+    for (const L of lights) if (L.parent) L.parent.remove(L);
+
+    const matCache = new Map();
+    for (const o of meshes) {
+      try {
+        if (!o.material) continue;
         const ms = Array.isArray(o.material) ? o.material : [o.material];
         const replaced = ms.map(m => {
+          if (!m) return new THREE.MeshBasicMaterial({color:0x555555});
           if (matCache.has(m.uuid)) return matCache.get(m.uuid);
-          // Determine the base color: prefer emissive if it's set + bright
           let col = new THREE.Color(0x555555);
           if (m.emissive && (m.emissive.r + m.emissive.g + m.emissive.b) > 0.05) {
             col = m.emissive.clone();
           } else if (m.color) {
             col = m.color.clone();
-            // Slightly brighten so it's visible without lights
             col.multiplyScalar(1.6);
           }
-          const opacity = (m.transmission && m.transmission > 0.1) ? 0.5 : (m.opacity !== undefined ? m.opacity : 1.0);
+          const opacity = (m.opacity !== undefined && m.opacity < 1) ? m.opacity : 1.0;
           const newMat = new THREE.MeshBasicMaterial({
             color: col,
             transparent: opacity < 1,
@@ -214,10 +218,11 @@ loader.load('biosphere.glb',
         });
         o.material = Array.isArray(o.material) ? replaced : replaced[0];
         o.castShadow = false; o.receiveShadow = false;
-        // Aggressive frustum culling
         o.frustumCulled = true;
+      } catch (err) {
+        console.warn('material convert failed for', o.name, err);
       }
-    });
+    }
     scene.add(gltf.scene);
     indexInteractables(gltf.scene);
     // Build flat list of meshes for distance culling
