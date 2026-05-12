@@ -109,20 +109,14 @@ scene.fog = new THREE.FogExp2(0x05060a, 0.045);
 const camera = new THREE.PerspectiveCamera(72, innerWidth/innerHeight, 0.1, 100);
 camera.position.set(0, 1.7, 6);
 
-const renderer = new THREE.WebGLRenderer({antialias:false, powerPreference:'high-performance'});
+const renderer = new THREE.WebGLRenderer({antialias:false, powerPreference:'low-power'});
 renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(0.7);   // render at 70% then upscale -> big perf win
+renderer.setPixelRatio(0.6);   // very low res for safety
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.45;
+renderer.toneMapping = THREE.NoToneMapping;  // unlit mode, no tone mapping
 renderer.shadowMap.enabled = false;
 document.body.appendChild(renderer.domElement);
-
-scene.add(new THREE.HemisphereLight(0x303848, 0x0a0608, 0.25));
-// Camera-mounted PointLight (cheaper than SpotLight, no shadow calc)
-const flashlight = new THREE.PointLight(0xfff0d6, 4, 14, 1.2);
-flashlight.castShadow = false;
-camera.add(flashlight);
+// No scene lights — using MeshBasicMaterial (unlit)
 scene.add(camera);
 
 const controls = new PointerLockControls(camera, document.body);
@@ -187,21 +181,41 @@ loader.load('biosphere.glb',
   gltf => {
     const crew = gltf.scene.getObjectByName('CREW_Spawn');
     if (crew && crew.parent) crew.parent.remove(crew);
-    // Clamp emissive intensities (anti-whiteout) + disable shadow casts on most stuff
+    // ULTRA-LITE MODE: convert all PBR materials to unlit MeshBasicMaterial (no lighting math),
+    // remove all Blender lights, no shadow setup
+    const matCache = new Map();
     gltf.scene.traverse(o => {
+      if (o.isLight) {
+        if (o.parent) o.parent.remove(o);
+        return;
+      }
       if (o.isMesh && o.material) {
         const ms = Array.isArray(o.material) ? o.material : [o.material];
-        ms.forEach(m => {
-          if (m.emissiveIntensity !== undefined && m.emissiveIntensity > 1) {
-            m.emissiveIntensity = Math.min(m.emissiveIntensity, 1.0);
+        const replaced = ms.map(m => {
+          if (matCache.has(m.uuid)) return matCache.get(m.uuid);
+          // Determine the base color: prefer emissive if it's set + bright
+          let col = new THREE.Color(0x555555);
+          if (m.emissive && (m.emissive.r + m.emissive.g + m.emissive.b) > 0.05) {
+            col = m.emissive.clone();
+          } else if (m.color) {
+            col = m.color.clone();
+            // Slightly brighten so it's visible without lights
+            col.multiplyScalar(1.6);
           }
+          const opacity = (m.transmission && m.transmission > 0.1) ? 0.5 : (m.opacity !== undefined ? m.opacity : 1.0);
+          const newMat = new THREE.MeshBasicMaterial({
+            color: col,
+            transparent: opacity < 1,
+            opacity: opacity,
+            fog: true,
+          });
+          matCache.set(m.uuid, newMat);
+          return newMat;
         });
+        o.material = Array.isArray(o.material) ? replaced : replaced[0];
         o.castShadow = false; o.receiveShadow = false;
-      }
-      if (o.isLight) {
-        // Dim very strong lights from Blender export
-        if (o.intensity > 50) o.intensity = Math.min(o.intensity * 0.05, 30);
-        o.castShadow = false;
+        // Aggressive frustum culling
+        o.frustumCulled = true;
       }
     });
     scene.add(gltf.scene);
