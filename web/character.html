@@ -22,6 +22,7 @@
   <button data-anim="walk">Walk</button>
   <button data-anim="task">Task</button>
   <button data-anim="kill">Kill</button>
+  <button data-anim="death">Death</button>
   <div class="row">muis sleep = roteren · scroll = zoom</div>
 </div>
 
@@ -58,14 +59,12 @@ const rim = new THREE.DirectionalLight(0x4a8ec8, 0.6);
 rim.position.set(-4, 4, -3);
 scene.add(rim);
 
-// Floor
 const floor = new THREE.Mesh(
   new THREE.CircleGeometry(6, 64),
   new THREE.MeshStandardMaterial({color:0x14181d, roughness:0.8})
 );
 floor.rotation.x = -Math.PI/2;
 scene.add(floor);
-// Grid
 const grid = new THREE.GridHelper(12, 24, 0x333, 0x222);
 scene.add(grid);
 
@@ -84,7 +83,6 @@ let mixer, actions = {}, current;
 const loader = new GLTFLoader();
 loader.load('biosphere.glb',
   gltf => {
-    // Find only CREW_Spawn node and add to scene
     const crew = gltf.scene.getObjectByName('CREW_Spawn');
     if (crew) {
       crew.position.set(0, 0, 0);
@@ -92,15 +90,12 @@ loader.load('biosphere.glb',
     } else {
       scene.add(gltf.scene);
     }
-
     mixer = new THREE.AnimationMixer(crew || gltf.scene);
     gltf.animations.forEach(clip => {
-      // Strip suffix if present and group by base name
       const baseName = clip.name.replace(/^.*?\|/, '').replace(/Action$/, '');
       actions[baseName] = mixer.clipAction(clip);
     });
     console.log('Animations available:', Object.keys(actions));
-
     play('walk');
     document.getElementById('loading').style.display='none';
     document.getElementById('ui').style.display='block';
@@ -117,14 +112,18 @@ loader.load('biosphere.glb',
 );
 
 function play(name) {
-  // Find action that matches
   const match = Object.keys(actions).find(k => k.toLowerCase().includes(name.toLowerCase()));
-  if (!match) {
-    console.warn('No anim found for', name, 'available:', Object.keys(actions));
-    return;
-  }
+  if (!match) { console.warn('No anim found for', name); return; }
   if (current === actions[match]) return;
   if (current) current.fadeOut(0.2);
+  // For death, play once and stay on last frame
+  if (name === 'death') {
+    actions[match].setLoop(THREE.LoopOnce, 1);
+    actions[match].clampWhenFinished = true;
+  } else {
+    actions[match].setLoop(THREE.LoopRepeat, Infinity);
+    actions[match].clampWhenFinished = false;
+  }
   actions[match].reset().fadeIn(0.2).play();
   current = actions[match];
   document.querySelectorAll('#ui button').forEach(btn => btn.classList.toggle('active', btn.dataset.anim === name));
