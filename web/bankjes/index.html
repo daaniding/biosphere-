@@ -227,7 +227,7 @@
 <!-- Instellingen / delen -->
 <div class="modal" id="settingsModal">
   <div class="box">
-    <h3>⚙️ Instellingen & delen</h3>
+    <h3>⚙️ Instellingen & delen <small style="font-weight:600;color:var(--muted);font-size:12px;">build v3</small></h3>
     <div class="status-line off" id="syncStatus">…</div>
 
     <div class="field">
@@ -466,15 +466,34 @@ function refreshStats(){
   $("#statTotal").textContent = total;
 }
 
-/* ---------- OSM bankjes laden (Overpass) ---------- */
-// Meerdere Overpass-servers: ligt de eerste plat/traag, dan proberen we de volgende.
+/* ---------- OSM bankjes laden ---------- */
+// Publieke Overpass-servers als directe fallback (als onze eigen API het niet doet).
 const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter",
-  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
-  "https://overpass.openstreetmap.ru/api/interpreter"
+  "https://overpass.private.coffee/api/interpreter"
 ];
-async function overpassFetch(q){
+
+// Haalt bankjes op: eerst via ONZE eigen server (/api/benches, zelfde domein,
+// geen CORS), en als dat faalt direct bij de publieke Overpass-servers.
+async function fetchBenches(bb){
+  // 1) Eigen server-endpoint (zelfde origin -> geen CORS-gedoe in de browser)
+  try{
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 25000);
+    const url = `/api/benches?s=${bb.getSouth()}&w=${bb.getWest()}&n=${bb.getNorth()}&e=${bb.getEast()}`;
+    const res = await fetch(url, { signal:ctrl.signal });
+    clearTimeout(timer);
+    if(res.ok){
+      const data = await res.json();
+      if(data && Array.isArray(data.benches)){
+        return data.benches.map(b => ({ id:b.id, lat:b.lat, lon:b.lon, tags:{ name:b.name } }));
+      }
+    }
+  }catch(e){ console.warn("Eigen /api/benches faalde, val terug op direct", e); }
+
+  // 2) Directe fallback naar publieke Overpass-servers
+  const q = `[out:json][timeout:25];node["amenity"="bench"](${bb.getSouth()},${bb.getWest()},${bb.getNorth()},${bb.getEast()});out;`;
   let lastErr;
   for(const url of OVERPASS_ENDPOINTS){
     try{
@@ -483,10 +502,11 @@ async function overpassFetch(q){
       const res = await fetch(url, { method:"POST", body:"data=" + encodeURIComponent(q), signal:ctrl.signal });
       clearTimeout(timer);
       if(!res.ok) throw new Error("HTTP " + res.status);
-      return await res.json();
+      const data = await res.json();
+      return data.elements || [];
     }catch(e){ lastErr = e; console.warn("Overpass faalde bij " + url, e); }
   }
-  throw lastErr || new Error("Alle Overpass-servers onbereikbaar");
+  throw lastErr || new Error("Alle servers onbereikbaar");
 }
 
 let osmBusy = false;
@@ -495,12 +515,10 @@ async function loadOsmBenches(){
   if(map.getZoom() < 13){ map.setZoom(15); toast("Ik zoom even in — tik dan nog eens 🔍"); return; }
   osmBusy = true;
   const btn = $("#btnLoadOsm"); btn.classList.add("busy"); btn.textContent = "⏳ Zoeken...";
-  const bb = map.getBounds();
-  const q = `[out:json][timeout:25];node["amenity"="bench"](${bb.getSouth()},${bb.getWest()},${bb.getNorth()},${bb.getEast()});out;`;
   try{
-    const data = await overpassFetch(q);
+    const elements = await fetchBenches(map.getBounds());
     let n = 0;
-    for(const el of (data.elements || [])){
+    for(const el of elements){
       const id = "osm_" + el.id;
       if(benches.has(id)) continue; // al bekend (mogelijk al afgevinkt)
       upsertBench({
